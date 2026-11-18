@@ -26,6 +26,7 @@ Future<void> main() async {
   try {
     await Supabase.initialize(
       url: 'https://xyzcompany.supabase.co',
+      // ignore: deprecated_member_use
       anonKey: 'public-anon-key-placeholder',
     );
   } catch (e) {

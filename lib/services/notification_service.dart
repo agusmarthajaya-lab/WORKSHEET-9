@@ -48,6 +48,7 @@ class NotificationService {
 
   Future<String?> getToken() async {
     try {
+      // ignore: deprecated_member_use
       final token = await _messaging.getToken();
       _lastToken = token;
       debugPrint('FCM Token: $token');
@@ -63,6 +64,7 @@ class NotificationService {
   /// Token dapat berubah, sehingga perubahan perlu didengarkan.
   void listenTokenRefresh(void Function(String token) onRefresh) {
     try {
+      // ignore: deprecated_member_use
       _messaging.onTokenRefresh.listen((newToken) {
         _lastToken = newToken;
         debugPrint('FCM Token diperbarui: $newToken');

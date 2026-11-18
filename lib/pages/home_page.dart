@@ -1,3 +1,4 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
@@ -19,6 +20,7 @@ class _HomePageState extends State<HomePage> {
   late Future<List<Map<String, dynamic>>> _kosFuture;
   final KosService _kosService = KosService();
   String? _fcmToken;
+  AuthorizationStatus _permissionStatus = AuthorizationStatus.authorized;
 
   @override
   void initState() {
@@ -26,11 +28,13 @@ class _HomePageState extends State<HomePage> {
     _loadData();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final status = await NotificationService.instance.requestPermission();
       await NotificationService.instance.init();
       await NotificationService.instance.setupInteractedMessage();
       final token = await NotificationService.instance.getToken();
       if (mounted) {
         setState(() {
+          _permissionStatus = status;
           _fcmToken = token;
         });
       }
@@ -374,13 +378,52 @@ class _HomePageState extends State<HomePage> {
                             ),
                           ],
                         ),
-                        if (_fcmToken != null) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            'FCM Token: ${_fcmToken!.substring(0, (_fcmToken!.length > 25 ? 25 : _fcmToken!.length))}...',
-                            style: const TextStyle(fontSize: 11, color: Colors.black54),
+                        const SizedBox(height: 10),
+                        // Status Izin Notifikasi & Token (Praktik 8 & 9)
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white70,
+                            borderRadius: BorderRadius.circular(6),
                           ),
-                        ],
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.notifications, size: 16, color: Colors.indigo),
+                                  const SizedBox(width: 6),
+                                  const Text(
+                                    'Notification Permission: ',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.shade100,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      _permissionStatus.name,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.green.shade900,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (_fcmToken != null) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  'FCM Token: ${_fcmToken!.substring(0, (_fcmToken!.length > 28 ? 28 : _fcmToken!.length))}...',
+                                  style: const TextStyle(fontSize: 11, color: Colors.black87),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),

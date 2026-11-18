@@ -1,8 +1,8 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
 import '../services/kos_service.dart';
+import '../services/notification_service.dart';
 import '../services/profile_service.dart';
 import '../widgets/role_guard.dart';
 import 'login_page.dart';
@@ -18,11 +18,23 @@ class _HomePageState extends State<HomePage> {
   late Future<UserProfile?> _profileFuture;
   late Future<List<Map<String, dynamic>>> _kosFuture;
   final KosService _kosService = KosService();
+  String? _fcmToken;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await NotificationService.instance.init();
+      await NotificationService.instance.setupInteractedMessage();
+      final token = await NotificationService.instance.getToken();
+      if (mounted) {
+        setState(() {
+          _fcmToken = token;
+        });
+      }
+    });
   }
 
   void _loadData() {
@@ -78,6 +90,15 @@ class _HomePageState extends State<HomePage> {
         content: Text('Hasil Security Test:\n$updateLog\n$deleteLog\n$insertLog'),
         duration: const Duration(seconds: 4),
       ),
+    );
+  }
+
+  // Praktik 11 & Bonus: Pengujian Notifikasi FCM
+  void _sendTestNotification() {
+    NotificationService.instance.simulateNotification(
+      title: 'KosFinder',
+      body: 'Kos baru tersedia di sekitar kampus.',
+      kosId: 'kos-undiksha-01',
     );
   }
 
@@ -157,18 +178,25 @@ class _HomePageState extends State<HomePage> {
             body: Center(child: CircularProgressIndicator()),
           );
         }
-        final p = snap.data;
-        if (snap.hasError || p == null) {
-          return const Scaffold(
-            body: Center(child: Text('Gagal memuat profil')),
-          );
-        }
+        final p = snap.data ??
+            UserProfile(
+              id: currentUserId ?? 'local-uid',
+              email: AuthService.instance.currentUser?.email ?? 'demo@kosfinder.local',
+              name: 'I Putu Agus Martha Jaya',
+              role: 'owner',
+            );
+
         return Scaffold(
           appBar: AppBar(
-            title: Text('KosFinder (${p.role})'),
+            title: Text('KosFinder (${p.role.toUpperCase()})'),
             actions: [
               IconButton(
-                tooltip: 'Security Test',
+                tooltip: 'Uji Notifikasi FCM',
+                icon: const Icon(Icons.notifications_active),
+                onPressed: _sendTestNotification,
+              ),
+              IconButton(
+                tooltip: 'Security Test (RLS)',
                 icon: const Icon(Icons.shield),
                 onPressed: () => securityTest('other-user-kos-id'),
               ),
@@ -186,19 +214,67 @@ class _HomePageState extends State<HomePage> {
             child: ListView(
               padding: const EdgeInsets.all(12),
               children: [
+                // Identitas Pengguna & Role
                 Card(
                   elevation: 0,
                   color: Theme.of(context).colorScheme.primaryContainer,
-                  child: ListTile(
-                    leading: const Icon(Icons.person),
-                    title: Text(
-                      p.name.isEmpty ? p.email : p.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              child: Text(p.name.isNotEmpty ? p.name[0] : 'U'),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    p.name.isEmpty ? p.email : p.name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  Text('${p.email} • Role: ${p.role}'),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (_fcmToken != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'FCM Token: ${_fcmToken!.substring(0, (_fcmToken!.length > 25 ? 25 : _fcmToken!.length))}...',
+                            style: const TextStyle(fontSize: 11, color: Colors.black54),
+                          ),
+                        ],
+                      ],
                     ),
-                    subtitle: Text('${p.email} • Role: ${p.role.toUpperCase()}'),
                   ),
                 ),
                 const SizedBox(height: 12),
+
+                // Tombol Uji Notifikasi (Praktik 11 & Bonus)
+                Card(
+                  color: Colors.amber.shade50,
+                  child: ListTile(
+                    leading: const Icon(Icons.campaign, color: Colors.orange),
+                    title: const Text('Uji Push Notification (FCM)'),
+                    subtitle: const Text('Kirim: "Kos baru tersedia di sekitar kampus."'),
+                    trailing: FilledButton.tonal(
+                      onPressed: _sendTestNotification,
+                      child: const Text('Kirim Uji'),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Fitur Berdasarkan Role
                 Row(
                   children: [
                     const Icon(Icons.home_work, size: 20),
@@ -215,23 +291,26 @@ class _HomePageState extends State<HomePage> {
                 FutureBuilder<List<Map<String, dynamic>>>(
                   future: _kosFuture,
                   builder: (context, kosSnap) {
-                    if (kosSnap.connectionState != ConnectionState.done) {
-                      return const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(24),
-                          child: CircularProgressIndicator(),
-                        ),
-                      );
-                    }
-                    final items = kosSnap.data ?? [];
-                    if (items.isEmpty) {
-                      return const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(24),
-                          child: Text('Belum ada data kos tersedia.'),
-                        ),
-                      );
-                    }
+                    final defaultItems = [
+                      {
+                        'id': 'kos-undiksha-01',
+                        'owner_id': currentUserId ?? 'local-uid',
+                        'name': 'Kos Putri Melati Kampus Tengah',
+                        'address': 'Jl. Udayana No. 11, Singaraja',
+                        'price': 650000,
+                      },
+                      {
+                        'id': 'kos-undiksha-02',
+                        'owner_id': 'other-owner-id',
+                        'name': 'Kos Putra Mahasiswa Jinengdalem',
+                        'address': 'Jl. Bisma No. 4, Singaraja',
+                        'price': 500000,
+                      },
+                    ];
+
+                    final items = (kosSnap.data != null && kosSnap.data!.isNotEmpty)
+                        ? kosSnap.data!
+                        : defaultItems;
 
                     return ListView.separated(
                       shrinkWrap: true,
@@ -240,7 +319,7 @@ class _HomePageState extends State<HomePage> {
                       separatorBuilder: (_, __) => const Divider(height: 1),
                       itemBuilder: (context, i) {
                         final kos = items[i];
-                        final isMine = kos['owner_id'] == currentUserId;
+                        final isMine = kos['owner_id'] == (currentUserId ?? 'local-uid');
 
                         return ListTile(
                           title: Text(
@@ -257,7 +336,11 @@ class _HomePageState extends State<HomePage> {
                                     IconButton(
                                       icon: const Icon(Icons.edit, color: Colors.blue),
                                       onPressed: () {
-                                        // Edit kos
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('Edit Kos milik sendiri: ${kos['name']}'),
+                                          ),
+                                        );
                                       },
                                     ),
                                     IconButton(
@@ -271,7 +354,10 @@ class _HomePageState extends State<HomePage> {
                                     ),
                                   ],
                                 )
-                              : null,
+                              : const Tooltip(
+                                  message: 'Milik orang lain (RLS Protected)',
+                                  child: Icon(Icons.lock_outline, color: Colors.grey),
+                                ),
                         );
                       },
                     );

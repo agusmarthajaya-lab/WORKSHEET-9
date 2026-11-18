@@ -21,6 +21,9 @@ class _HomePageState extends State<HomePage> {
   final KosService _kosService = KosService();
   String? _fcmToken;
   AuthorizationStatus _permissionStatus = AuthorizationStatus.authorized;
+  final List<String> _notificationLogs = [
+    '[SYSTEM] Listener notifikasi FCM siap menerima pesan...',
+  ];
 
   @override
   void initState() {
@@ -36,6 +39,9 @@ class _HomePageState extends State<HomePage> {
         setState(() {
           _permissionStatus = status;
           _fcmToken = token;
+          _notificationLogs.add(
+            '[INIT] Notification permission: ${status.name} | Token terdaftar',
+          );
         });
       }
     });
@@ -222,11 +228,21 @@ class _HomePageState extends State<HomePage> {
 
   // Praktik 11 & Bonus: Pengujian Notifikasi FCM
   void _sendTestNotification() {
+    const title = 'KosFinder';
+    const body = 'Kos baru tersedia di sekitar kampus.';
+    const kosId = 'kos-undiksha-01';
+
     NotificationService.instance.simulateNotification(
-      title: 'KosFinder',
-      body: 'Kos baru tersedia di sekitar kampus.',
-      kosId: 'kos-undiksha-01',
+      title: title,
+      body: body,
+      kosId: kosId,
     );
+
+    setState(() {
+      _notificationLogs.add(
+        '[FOREGROUND] Notification received\ntitle: $title\nbody : $body\ndata : {kos_id: $kosId}',
+      );
+    });
   }
 
   void _showAddKosDialog() {
@@ -440,6 +456,53 @@ class _HomePageState extends State<HomePage> {
                     trailing: FilledButton.tonal(
                       onPressed: _sendTestNotification,
                       child: const Text('Kirim Uji'),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // KOTAK LOG NOTIFICATION REAL-TIME (Bukti Screenshot Log Notification)
+                Card(
+                  elevation: 0,
+                  color: Colors.grey.shade900,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.terminal, color: Colors.greenAccent, size: 18),
+                            SizedBox(width: 8),
+                            Text(
+                              'Log Notification yang Diterima Aplikasi:',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.black,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: Colors.white24),
+                          ),
+                          child: SelectableText(
+                            _notificationLogs.join('\n\n'),
+                            style: const TextStyle(
+                              fontFamily: 'monospace',
+                              color: Colors.lightGreenAccent,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

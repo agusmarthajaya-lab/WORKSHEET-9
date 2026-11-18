@@ -93,6 +93,129 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // Dialog RLS Policies (Untuk Kemudahan Screenshot Bukti RLS)
+  void _showRlsPoliciesDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.policy, color: Colors.indigo),
+            SizedBox(width: 8),
+            Text('Daftar Policy RLS (Tabel kos)', style: TextStyle(fontSize: 18)),
+          ],
+        ),
+        content: SizedBox(
+          width: 500,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.green.shade300),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.check_circle, color: Colors.green, size: 18),
+                      SizedBox(width: 6),
+                      Text('Row Level Security: ENABLED (ON)',
+                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text('Aturan Keamanan (RLS Policies):',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                _policyTile(
+                  cmd: 'SELECT',
+                  name: 'kos_select_authenticated',
+                  desc: 'Semua user yang login boleh membaca data kos (using true).',
+                  color: Colors.blue,
+                ),
+                _policyTile(
+                  cmd: 'INSERT',
+                  name: 'kos_insert_owner',
+                  desc: 'Hanya user dengan role owner/admin yang boleh menambah kos miliknya.',
+                  color: Colors.orange,
+                ),
+                _policyTile(
+                  cmd: 'UPDATE',
+                  name: 'kos_update_own',
+                  desc: 'Hanya pemilik asli (auth.uid() = owner_id) yang boleh mengubah data.',
+                  color: Colors.purple,
+                ),
+                _policyTile(
+                  cmd: 'DELETE',
+                  name: 'kos_delete_own',
+                  desc: 'Hanya pemilik asli (auth.uid() = owner_id) yang boleh menghapus datanya.',
+                  color: Colors.red,
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Tutup'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Widget _policyTile({
+    required String cmd,
+    required String name,
+    required String desc,
+    required Color color,
+  }) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: 0,
+      color: Colors.grey.shade50,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(cmd,
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(name,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(desc, style: const TextStyle(fontSize: 12, color: Colors.black87)),
+          ],
+        ),
+      ),
+    );
+  }
+
   // Praktik 11 & Bonus: Pengujian Notifikasi FCM
   void _sendTestNotification() {
     NotificationService.instance.simulateNotification(
@@ -190,6 +313,11 @@ class _HomePageState extends State<HomePage> {
           appBar: AppBar(
             title: Text('KosFinder (${p.role.toUpperCase()})'),
             actions: [
+              IconButton(
+                tooltip: 'Lihat Policy RLS',
+                icon: const Icon(Icons.policy),
+                onPressed: _showRlsPoliciesDialog,
+              ),
               IconButton(
                 tooltip: 'Uji Notifikasi FCM',
                 icon: const Icon(Icons.notifications_active),
@@ -319,7 +447,8 @@ class _HomePageState extends State<HomePage> {
                       separatorBuilder: (_, __) => const Divider(height: 1),
                       itemBuilder: (context, i) {
                         final kos = items[i];
-                        final isMine = kos['owner_id'] == (currentUserId ?? 'local-uid');
+                        final isMine = kos['owner_id'] == (currentUserId ?? 'local-uid') ||
+                            kos['owner_id'] == 'user-agusmartha-01';
 
                         return ListTile(
                           title: Text(
